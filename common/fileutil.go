@@ -34,6 +34,7 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/pkg/errors"
@@ -513,9 +514,21 @@ func runCmdCtrlArgs(c string, silent bool, args ...string) (string, string, erro
 		return "", "", err
 	}
 
-	slurpErr, _ := ioutil.ReadAll(stderr)
-	slurpOut, _ := ioutil.ReadAll(stdout)
+	var slurpErr []byte
+	var slurpOut []byte
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	go func() {
+		defer wg.Done()
+		slurpErr, _ = ioutil.ReadAll(stderr)
+	}()
+	go func() {
+		defer wg.Done()
+		slurpOut, _ = ioutil.ReadAll(stdout)
+	}()
 	err = cmd.Wait()
+	wg.Wait()
 
 	if err != nil {
 		CondPrintf("cmd:    %s\n", c)
